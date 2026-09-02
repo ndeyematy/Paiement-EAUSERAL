@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b6cb8">
+<title>EAU SERAL — Paiement Journaliers</title>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --blue:#0b6cb8;
+    --blue-dark:#084c85;
+    --blue-light:#e8f3fb;
+    --water:#12a4d1;
+    --ink:#1c2b36;
+    --muted:#5c6f7a;
+    --line:#d8e3ea;
+    --bg:#f4f8fb;
+    --white:#ffffff;
+    --green:#1c8a5a;
+    --red:#c94b3f;
+    --amber:#e2a53a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--bg); color:var(--ink);
+  }
+  header{
+    background:linear-gradient(135deg,var(--blue-dark),var(--blue) 60%, var(--water));
+    color:#fff; padding:14px 24px 34px;
+  }
+  header h1{margin:0 0 4px; font-size:1.25rem; letter-spacing:.5px;}
+  header p{margin:0; opacity:.9; font-size:.85rem;}
+  .wrap{max-width:1100px; margin:-18px auto 40px; padding:0 16px;}
+  nav{
+    display:flex; gap:6px; background:var(--white); border-radius:14px;
+    box-shadow:0 6px 18px rgba(11,108,184,.15); padding:6px; margin-bottom:20px;
+    flex-wrap:wrap;
+  }
+  nav button{
+    flex:1; min-width:120px; border:none; background:transparent; padding:12px 10px;
+    font-size:.92rem; font-weight:600; color:var(--muted); border-radius:10px; cursor:pointer;
+    transition:.15s;
+  }
+  nav button.active{background:var(--blue); color:#fff;}
+  nav button:not(.active):hover{background:var(--blue-light); color:var(--blue-dark);}
+  section{display:none; background:var(--white); border-radius:14px; padding:22px;
+    box-shadow:0 4px 14px rgba(11,108,184,.08);}
+  section.active{display:block;}
+  h2{margin-top:0; color:var(--blue-dark); font-size:1.2rem;}
+  .sub{color:var(--muted); font-size:.88rem; margin-top:-8px; margin-bottom:18px;}
+  .row{display:flex; gap:14px; flex-wrap:wrap; margin-bottom:16px; align-items:flex-end;}
+  .field{display:flex; flex-direction:column; gap:5px;}
+  .field label{font-size:.78rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.4px;}
+  input, select{
+    padding:9px 10px; border:1px solid var(--line); border-radius:8px; font-size:.92rem;
+    font-family:inherit; background:#fff;
+  }
+  input:focus, select:focus{outline:2px solid var(--water); outline-offset:1px;}
+  table{width:100%; border-collapse:collapse; font-size:.88rem;}
+  th, td{border:1px solid var(--line); padding:7px 8px; text-align:center;}
+  th{background:var(--blue-light); color:var(--blue-dark); font-size:.76rem; text-transform:uppercase; letter-spacing:.3px;}
+  td input, td select{width:100%; padding:6px; font-size:.86rem; border:1px solid transparent; background:transparent; text-align:center;}
+  td input[type=text]{text-align:left;}
+  td input:focus, td select:focus{border:1px solid var(--water); background:#fff;}
+  tbody tr:nth-child(even){background:#fafcfe;}
+  .present{background:#e5f7ee !important;}
+  .absent{background:#fbecea !important;}
+  .day-cell{cursor:pointer; font-weight:700; user-select:none;}
+  .day-cell.P{color:var(--green);}
+  .day-cell.A{color:var(--red);}
+  .day-toggle{display:flex; flex-direction:column; gap:3px; align-items:center;}
+  .day-btn{
+    width:32px; height:24px; font-size:.72rem; font-weight:800; border-radius:5px;
+    border:1px solid var(--line); background:#fff; cursor:pointer; color:var(--muted);
+    line-height:1;
+  }
+  .day-btn.p.active{background:var(--green); color:#fff; border-color:var(--green);}
+  .day-btn.a.active{background:var(--red); color:#fff; border-color:var(--red);}
+  .journalier-tag{display:inline-block; font-size:.7rem; font-weight:700; padding:2px 8px; border-radius:20px; background:var(--blue-light); color:var(--blue-dark);}
+  .toolbar{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  button.btn{
+    background:var(--blue); color:#fff; border:none; padding:10px 16px; border-radius:9px;
+    font-size:.88rem; font-weight:600; cursor:pointer;
+  }
+  button.btn.secondary{background:var(--white); color:var(--blue); border:1px solid var(--blue);}
+  button.btn.danger{background:var(--white); color:var(--red); border:1px solid var(--red);}
+  button.btn:hover{filter:brightness(1.08);}
+  .totals{margin-top:16px; display:flex; gap:16px; flex-wrap:wrap;}
+  .total-card{
+    background:var(--blue-light); border-radius:10px; padding:14px 20px; min-width:180px;
+  }
+  .total-card .label{font-size:.76rem; color:var(--blue-dark); text-transform:uppercase; font-weight:700;}
+  .total-card .value{font-size:1.4rem; font-weight:700; color:var(--ink); margin-top:2px;}
+  .del-btn{background:transparent; border:none; color:var(--red); cursor:pointer; font-size:1rem;}
+  .note{background:#fff7e6; border:1px solid var(--amber); color:#7a5a10; padding:10px 14px; border-radius:8px; font-size:.85rem; margin-bottom:16px;}
+  .home-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; margin-top:10px;}
+  .home-card{border:1px solid var(--line); border-radius:12px; padding:18px; cursor:pointer; transition:.15s;}
+  .home-card:hover{border-color:var(--blue); box-shadow:0 4px 14px rgba(11,108,184,.12);}
+  .home-card .num{font-size:1.6rem; font-weight:800; color:var(--blue); margin-bottom:6px;}
+  .home-card h3{margin:0 0 6px; font-size:1rem;}
+  .home-card p{margin:0; color:var(--muted); font-size:.85rem;}
+  .rates{display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap;}
+  @media print{
+    header, nav, .toolbar, .no-print, .lock-screen{display:none !important;}
+    body{background:#fff;}
+    .wrap{margin:0;}
+    section{display:none !important; box-shadow:none; padding:0;}
+    section.print-active{display:block !important;}
+  }
+  footer{text-align:center; color:var(--muted); font-size:.78rem; padding:20px; }
+
+  .lock-screen{position:fixed; inset:0; background:linear-gradient(135deg,var(--blue-dark),var(--blue) 60%, var(--water)); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .lock-card{background:#fff; border-radius:16px; padding:28px; max-width:360px; width:100%; box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  .lock-logo{font-size:1.25rem; font-weight:800; color:var(--blue-dark); margin-bottom:16px; text-align:center;}
+  .lock-card h2{margin:0 0 6px; font-size:1.1rem; color:var(--blue-dark);}
+  .lock-card .field{margin-bottom:12px;}
+  .lock-card .field input{width:100%;}
+  .lock-error{color:var(--red); font-size:.85rem; display:none; margin:-4px 0 8px;}
+  .header-account{position:absolute; top:16px; right:16px;}
+  .header-account button{background:rgba(255,255,255,.18); color:#fff; border:1px solid rgba(255,255,255,.4); border-radius:8px; padding:6px 12px; font-size:.78rem; cursor:pointer;}
+  .header-account button:hover{background:rgba(255,255,255,.3);}
+  header{position:relative;}
+
+  .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .table-scroll table{min-width:640px;}
+
+  @media (max-width:640px){
+    header{padding:12px 14px 26px;}
+    header h1{font-size:1rem;}
+    header p{font-size:.72rem;}
+    .header-account{top:10px; right:10px;}
+    .header-account button{padding:5px 9px; font-size:.68rem;}
+    .wrap{margin-top:-14px; padding:0 10px;}
+    nav{gap:4px; padding:4px;}
+    nav button{min-width:auto; flex:1 1 40%; font-size:.8rem; padding:10px 6px;}
+    section{padding:14px;}
+    h2{font-size:1.05rem;}
+    .row{gap:10px;}
+    .field{flex:1 1 100%;}
+    input, select{font-size:1rem;} /* prevents iOS zoom on focus */
+    .toolbar{flex-direction:column;}
+    .toolbar button.btn{width:100%;}
+    .totals{flex-direction:column;}
+    .home-grid{grid-template-columns:1fr;}
+    table{font-size:.8rem;}
+    th, td{padding:6px 5px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loadingOverlay" style="display:none; position:fixed; inset:0; background:rgba(8,76,133,.92); z-index:9998; align-items:center; justify-content:center; color:#fff; font-size:1rem; font-weight:600; text-align:center; padding:20px;">
+  <div>💧 Synchronisation des données…</div>
+</div>
+
+<div id="lockScreen" class="lock-screen">
+  <div class="lock-card">
+    <div class="lock-logo">💧 EAU SERAL</div>
+
+    <div id="lockSetupView">
+      <h2>Créer un mot de passe</h2>
+      <p class="sub">Première utilisation sur cet appareil : choisissez un mot de passe pour protéger l'accès au logiciel.</p>
+      <div class="field"><label>Nouveau mot de passe</label><input type="password" id="setupPwd1" autocomplete="new-password"></div>
+      <div class="field"><label>Confirmer le mot de passe</label><input type="password" id="setupPwd2" autocomplete="new-password" onkeydown="if(event.key==='Enter') setupPassword()"></div>
+      <p id="setupError" class="lock-error"></p>
+      <button class="btn" style="width:100%;" onclick="setupPassword()">Enregistrer et continuer</button>
+    </div>
+
+    <div id="lockLoginView" style="display:none;">
+      <h2>Accès protégé</h2>
+      <p class="sub">Entrez le mot de passe pour ouvrir le logiciel.</p>
+      <div class="field"><label>Mot de passe</label><input type="password" id="loginPwd" autocomplete="current-password" onkeydown="if(event.key==='Enter') tryLogin()"></div>
+      <p id="loginError" class="lock-error">Mot de passe incorrect.</p>
+      <button class="btn" style="width:100%;" onclick="tryLogin()">Déverrouiller</button>
+    </div>
+  </div>
+</div>
+
+<header>
+  <div class="header-account no-print">
+    <button onclick="changePassword()">🔑 Changer</button>
+    <button onclick="logout()">🔒 Verrouiller</button>
+  </div>
+  <h1>💧 EAU SERAL — Gestion du paiement des journaliers</h1>
+  <p>Suivi du pointage et paiement hebdomadaire · Sindia, Kiniabour</p>
+</header>
+
+<div class="wrap">
+
+  <nav>
+    <button class="tab-btn active" data-tab="accueil">🏠 Accueil</button>
+    <button class="tab-btn" data-tab="journaliers">👷 Journaliers</button>
+    <button class="tab-btn" data-tab="aides">🤝 Aides</button>
+    <button class="tab-btn" data-tab="pointage">📋 Pointage</button>
+    <button class="tab-btn" data-tab="recap">💰 Récap paiement</button>
+    <button class="tab-btn" data-tab="historique">📚 Historique</button>
+  </nav>
+
+  <section id="accueil" class="active">
+    <h2>Bienvenue</h2>
+    <p class="sub">Production : 3&nbsp;000&nbsp;F / jour &nbsp;·&nbsp; Camion : 3&nbsp;500&nbsp;F / jour &nbsp;·&nbsp; Paiement chaque samedi</p>
+    <div class="home-grid">
+      <div class="home-card" onclick="goTo('journaliers')">
+        <div class="num">1</div>
+        <h3>Journaliers</h3>
+        <p>Liste et catégories du personnel journalier (facultatif, sert d'annuaire).</p>
+      </div>
+      <div class="home-card" onclick="goTo('pointage')">
+        <div class="num">2</div>
+        <h3>Pointage de la semaine</h3>
+        <p>Cochez Présent / Absent chaque jour. Le montant se calcule automatiquement.</p>
+      </div>
+      <div class="home-card" onclick="goTo('aides')">
+        <div class="num">3</div>
+        <h3>Aides</h3>
+        <p>Les 4 aides avec un montant hebdomadaire libre à renseigner.</p>
+      </div>
+      <div class="home-card" onclick="goTo('recap')">
+        <div class="num">4</div>
+        <h3>Récap paiement</h3>
+        <p>Récapitulatif de la semaine, avec les avances déjà versées.</p>
+      </div>
+      <div class="home-card" onclick="goTo('historique')">
+        <div class="num">5</div>
+        <h3>Historique des paiements</h3>
+        <p>Conservez et consultez les paiements de chaque semaine.</p>
+      </div>
+    </div>
+    <div class="rates" style="margin-top:24px;">
+      <div class="field"><label>Taux Production (F/jour)</label><input type="number" id="rateProduction" value="3000"></div>
+      <div class="field"><label>Taux Camion (F/jour)</label><input type="number" id="rateCamion" value="3500"></div>
+    </div>
+    <button class="btn" onclick="saveRates()">Enregistrer les taux</button>
+  </section>
+
+  <section id="journaliers">
+    <h2>1. Journaliers — liste et catégories</h2>
+    <p class="sub">Liste permanente du personnel journalier. Les noms et catégories enregistrés ici restent disponibles pour toutes les semaines.</p>
+    <div class="toolbar no-print">
+      <button class="btn" onclick="addJournalier()">+ Ajouter un journalier</button>
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>N°</th><th>Nom et Prénom</th><th>Catégorie</th><th>Téléphone</th><th>Statut</th><th class="no-print"></th></tr></thead>
+      <tbody id="journaliersBody"></tbody>
+    </table>
+    </div>
+  </section>
+
+
+  <section id="aides">
+    <h2>2. Aides</h2>
+    <p class="sub">Les aides ne sont pas obligées d'être classées comme journaliers. Leur montant de la semaine est libre : renseignez directement ce qui doit être payé.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>N°</th><th>Nom</th><th>Montant de la semaine (F)</th><th>Paiement à l’avance (F)</th><th>Reste à payer (F)</th></tr></thead>
+        <tbody id="aidesBody"></tbody>
+        <tfoot>
+          <tr style="font-weight:700; background:var(--blue-light);">
+            <td colspan="2">TOTAL AIDES</td>
+            <td id="aidesTotMontant">0</td><td id="aidesTotAvance">0</td><td id="aidesTotReste">0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section id="pointage">
+    <h2>3. Pointage de la semaine</h2>
+    <div class="row">
+      <div class="field"><label>Semaine du</label><input type="date" id="weekStart"></div>
+      <div class="field"><label>Au</label><input type="date" id="weekEnd"></div>
+      <div class="field"><label>Paiement</label><input type="text" value="SAMEDI" disabled></div>
+    </div>
+    <div class="note">Les <strong>noms et catégories</strong> enregistrés dans « Journaliers » restent les mêmes chaque semaine. À la fin de la semaine, seul le <strong>pointage et les paiements</strong> sont remis à zéro pour la nouvelle semaine.</div>
+    <div class="toolbar no-print">
+      <p class="sub" style="margin:0;">La liste des ouvriers vient automatiquement de la page <strong>Journaliers</strong>. Gérez les noms là-bas.</p>
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>N°</th><th>Nom et Prénom</th><th>Catégorie</th>
+          <th>Lun</th><th>Mar</th><th>Mer</th><th>Jeu</th><th>Ven</th><th>Sam</th>
+          <th>Jours travaillés</th><th>Taux/jour (F)</th><th>Montant semaine (F)</th><th>Paiement à l’avance (F)</th><th>Reste à payer (F)</th>
+        </tr>
+      </thead>
+      <tbody id="pointageBody"></tbody>
+      <tfoot>
+        <tr style="font-weight:700; background:var(--blue-light);">
+          <td colspan="9">TOTAL A PAYER LE SAMEDI</td>
+          <td id="totJours">0</td><td></td><td id="totMontant">0</td><td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+    <p class="sub" style="margin-top:12px;">Pour chaque jour, touchez <strong>P</strong> (Présent) ou <strong>A</strong> (Absent). Le <strong>Taux/jour</strong> est pré-rempli selon la catégorie (3 000 F Production, 3 500 F Camion) mais reste modifiable pour chaque personne — utile pour ceux qui ont un accord particulier (par ex. 9 000 F) ; une fois modifié, il est mémorisé pour les prochaines semaines (⟲ pour revenir au défaut). Le <strong>Montant semaine</strong> est aussi modifiable si besoin (⟲ pour revenir au calcul automatique jours × taux). Dans <strong>Paiement à l’avance</strong>, indiquez ce qui a déjà été versé avant la fin de la semaine ; le reste à payer se calcule automatiquement.</p>
+  </section>
+
+  <section id="recap">
+    <h2>4. Récap paiement — prêt pour le samedi</h2>
+    <p class="sub" id="recapWeekLabel">Semaine du : — au : —</p>
+    <div class="toolbar no-print">
+      <button class="btn" onclick="window.print()">🖨️ Imprimer le récapitulatif</button>
+    </div>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>N°</th><th>Nom et Prénom</th><th>Catégorie</th><th>Jours travaillés</th><th>Taux/jour (F)</th><th>Montant à payer (F)</th><th>Émargement</th></tr></thead>
+      <tbody id="recapBody"></tbody>
+      <tfoot>
+        <tr style="font-weight:700; background:var(--blue-light);">
+          <td colspan="3">TOTAL GÉNÉRAL</td>
+          <td id="recapTotJours">0</td><td></td><td id="recapTotMontant">0</td><td></td>
+        </tr>
+      </tfoot>
+    </table>
+    </div>
+  </section>
+
+  <section id="historique">
+    <h2>5. Historique des paiements</h2>
+    <p class="sub">Chaque semaine terminée est automatiquement conservée, y compris les montants des 4 aides. Les noms et catégories du personnel restent inchangés d'une semaine à l'autre : seule la feuille de pointage et les paiements de la semaine sont renouvelés.</p>
+    <div class="toolbar no-print">
+      <button class="btn secondary" onclick="refreshHistory()">🔄 Actualiser l’historique</button>
+      <button class="btn" onclick="printHistory()">🖨️ Imprimer l’historique</button>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Semaine</th><th>Jours travaillés</th><th>Montant semaine (F)</th><th>Avances (F)</th><th>Reste à payer (F)</th><th>Statut</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:16px;">
+      <strong>Mise à jour automatique :</strong> à l’ouverture du logiciel après la fin de la semaine,
+      la semaine précédente est archivée et une nouvelle semaine est créée. Les anciennes semaines restent disponibles ici.
+    </div>
+  </section>
+
+</div>
+
+<footer>EAU SERAL · Sindia, Kiniabour — Outil de paiement des journaliers</footer>
+
+<script>
+/* ---------- Firebase ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyDaYtuUIqs29j4PH8u9Aald8u7J6WnQeSk",
+  authDomain: "paiement-eauseral.firebaseapp.com",
+  projectId: "paiement-eauseral",
+  storageBucket: "paiement-eauseral.firebasestorage.app",
+  messagingSenderId: "489171972989",
+  appId: "1:489171972989:web:5bcfe47b2c476aa1c89214"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+const kvCache = {};
+const META_MAP = {
+  'seral_journaliers':'journaliers',
+  'seral_aides':'aides',
+  'seral_rates':'rates',
+  'seral_current_week':'current_week',
+  'seral_week_history':'week_history',
+  'seral_pwd_hash':'pwd_hash'
+};
+function firestoreRefFor(key){
+  if(key.startsWith('seral_week_')){
+    return db.collection('seral_weeks').doc(key.slice('seral_week_'.length));
+  }
+  return db.collection('seral_meta').doc(META_MAP[key] || key);
+}
+function load(key, fallback){
+  return kvCache.hasOwnProperty(key) ? kvCache[key] : fallback;
+}
+function save(key, val){
+  kvCache[key] = val;
+  const isWeek = key.startsWith('seral_week_');
+  const payload = isWeek ? val : {value: val};
+  firestoreRefFor(key).set(payload).catch(err=>console.error('Firestore save error:', key, err));
+}
+function showLoading(show){
+  document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+}
+
+/* ---------- Sécurité : mot de passe partagé (même mot de passe sur tous les appareils) ---------- */
+const LS_PWD_HASH = 'seral_pwd_hash';
+const SS_AUTH = 'seral_authed';
+let sharedPwdHash = null;
+
+async function sha256Hex(str){
+  const enc = new TextEncoder().encode(str);
+  const buf = await crypto.subtle.digest('SHA-256', enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function bootstrapAuth(){
+  showLoading(true);
+  try{
+    const doc = await firestoreRefFor(LS_PWD_HASH).get();
+    if(doc.exists){ sharedPwdHash = doc.data().value; kvCache[LS_PWD_HASH]=sharedPwdHash; }
+  }catch(e){ console.error('Firestore auth fetch error', e); }
+  showLoading(false);
+  initLock();
+}
+function initLock(){
+  const authed = sessionStorage.getItem(SS_AUTH)==='1';
+  const screen = document.getElementById('lockScreen');
+  if(!sharedPwdHash){
+    document.getElementById('lockSetupView').style.display='block';
+    document.getElementById('lockLoginView').style.display='none';
+    screen.style.display='flex';
+  } else if(!authed){
+    document.getElementById('lockSetupView').style.display='none';
+    document.getElementById('lockLoginView').style.display='block';
+    screen.style.display='flex';
+    setTimeout(()=>document.getElementById('loginPwd')?.focus(),50);
+  } else {
+    screen.style.display='none';
+    bootstrapData();
+  }
+}
+async function setupPassword(){
+  const p1 = document.getElementById('setupPwd1').value;
+  const p2 = document.getElementById('setupPwd2').value;
+  const err = document.getElementById('setupError');
+  err.style.display='none';
+  if(p1.length<4){ err.textContent='Le mot de passe doit contenir au moins 4 caractères.'; err.style.display='block'; return; }
+  if(p1!==p2){ err.textContent='Les deux mots de passe ne correspondent pas.'; err.style.display='block'; return; }
+  const hash = await sha256Hex(p1);
+  sharedPwdHash = hash;
+  save(LS_PWD_HASH, hash);
+  sessionStorage.setItem(SS_AUTH, '1');
+  document.getElementById('lockScreen').style.display='none';
+  bootstrapData();
+}
+async function tryLogin(){
+  const p = document.getElementById('loginPwd').value;
+  const err = document.getElementById('loginError');
+  const hash = await sha256Hex(p);
+  if(hash === sharedPwdHash){
+    sessionStorage.setItem(SS_AUTH, '1');
+    document.getElementById('lockScreen').style.display='none';
+    err.style.display='none';
+    bootstrapData();
+  } else {
+    err.style.display='block';
+    document.getElementById('loginPwd').value='';
+    document.getElementById('loginPwd').focus();
+  }
+}
+function logout(){
+  sessionStorage.removeItem(SS_AUTH);
+  const p=document.getElementById('loginPwd'); if(p) p.value='';
+  initLock();
+}
+async function changePassword(){
+  const current = prompt('Mot de passe actuel :');
+  if(current===null) return;
+  const curHash = await sha256Hex(current);
+  if(curHash !== sharedPwdHash){ alert('Mot de passe actuel incorrect.'); return; }
+  const n1 = prompt('Nouveau mot de passe (4 caractères minimum) :');
+  if(n1===null) return;
+  if(n1.length<4){ alert('Le mot de passe doit contenir au moins 4 caractères.'); return; }
+  const n2 = prompt('Confirmez le nouveau mot de passe :');
+  if(n1!==n2){ alert('Les mots de passe ne correspondent pas.'); return; }
+  const newHash = await sha256Hex(n1);
+  sharedPwdHash = newHash;
+  save(LS_PWD_HASH, newHash);
+  alert('Mot de passe changé avec succès sur tous les appareils.');
+}
+bootstrapAuth();
+
+/* ---------- Clés de données ---------- */
+const LS_JOURNALIERS = 'seral_journaliers';
+const LS_AIDES = 'seral_aides';
+const LS_RATES = 'seral_rates';
+const LS_WEEK_PREFIX = 'seral_week_';
+const LS_CURRENT_WEEK = 'seral_current_week';
+const LS_WEEK_HISTORY = 'seral_week_history';
+
+let rates = {Production:3000, Camion:3500};
+let journaliers = []; // {id, nom, categorie, telephone, statut}
+let aides = [
+  {id:'aide_louthie_1', nom:'Aide Louthie 1'},
+  {id:'aide_louthie_2', nom:'Aide Louthie 2'},
+  {id:'aide_bana', nom:'Aide Bana'},
+  {id:'aide_leonie', nom:'Aide Léonie'}
+];
+
+function newId(){ return 'j_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+/* current week data: {start, end, entries: { [journalierId]: {days:['','','','','',''], avance:0} }} */
+function todayMonday(){
+  const d = new Date();
+  const day = d.getDay();
+  const diff = (day===0? -6 : 1-day);
+  d.setDate(d.getDate()+diff);
+  return d.toISOString().slice(0,10);
+}
+function addDays(dateStr, n){
+  const d = new Date(dateStr);
+  d.setDate(d.getDate()+n);
+  return d.toISOString().slice(0,10);
+}
+
+function weekTemplate(start){
+  return {start, end:addDays(start,5), entries:{}, closed:false};
+}
+function weekTotals(data){
+  let jours=0, montant=0, avance=0;
+  Object.entries(data.entries||{}).forEach(([id,entry])=>{
+    const j=(entry.days||[]).filter(d=>d==='P').length;
+    jours += j;
+    const journalier=journaliers.find(x=>x.id===id);
+    const aide=aides.find(x=>x.id===id);
+    if(aide){
+      montant += Math.max(0,Number(entry.aideMontant)||0);
+    } else {
+      const hasOverride = entry.montantOverride!==undefined && entry.montantOverride!==null && entry.montantOverride!=='';
+      if(hasOverride){
+        montant += Number(entry.montantOverride);
+      } else {
+        const taux=journalier ? effectiveTaux(journalier) : null;
+        if(taux!==null) montant += j*taux;
+      }
+    }
+    avance += Math.max(0,Number(entry.avance)||0);
+  });
+  return {jours,montant,avance,reste:Math.max(0,montant-avance)};
+}
+function archiveWeek(data){
+  if(!data || !data.start) return;
+  const history=load(LS_WEEK_HISTORY,[]);
+  const t=weekTotals(data);
+  const item={start:data.start,end:data.end,jours:t.jours,montant:t.montant,avance:t.avance,reste:t.reste,closed:true};
+  const i=history.findIndex(x=>x.start===data.start);
+  if(i>=0) history[i]=item; else history.push(item);
+  history.sort((a,b)=>a.start.localeCompare(b.start));
+  save(LS_WEEK_HISTORY,history);
+  data.closed=true;
+  save(LS_WEEK_PREFIX+data.start,data);
+}
+
+let currentWeekStart = todayMonday();
+let weekData = weekTemplate(currentWeekStart);
+let weekListenerUnsub = null;
+
+/* ---------- Chargement initial depuis Firestore + écoute en temps réel ---------- */
+function legacyLoad(key, fallback){
+  try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }catch(e){ return fallback; }
+}
+
+async function bootstrapData(){
+  showLoading(true);
+  try{
+    const [ratesDoc, journaliersDoc, aidesDoc, currentWeekDoc, historyDoc] = await Promise.all([
+      firestoreRefFor(LS_RATES).get(),
+      firestoreRefFor(LS_JOURNALIERS).get(),
+      firestoreRefFor(LS_AIDES).get(),
+      firestoreRefFor(LS_CURRENT_WEEK).get(),
+      firestoreRefFor(LS_WEEK_HISTORY).get(),
+    ]);
+
+    // Rates : migrer l'ancienne valeur locale si la base en ligne est encore vide
+    if(ratesDoc.exists){
+      kvCache[LS_RATES]=ratesDoc.data().value;
+    } else {
+      rates = legacyLoad(LS_RATES, rates);
+      save(LS_RATES, rates);
+    }
+    rates = load(LS_RATES, rates);
+
+    // Journaliers : migrer la liste déjà enregistrée localement si la base en ligne est encore vide
+    if(journaliersDoc.exists){
+      kvCache[LS_JOURNALIERS]=journaliersDoc.data().value;
+    } else {
+      const legacyJournaliers = legacyLoad(LS_JOURNALIERS, []);
+      if(legacyJournaliers.length){ kvCache[LS_JOURNALIERS]=legacyJournaliers; }
+    }
+    journaliers = load(LS_JOURNALIERS, []);
+    let migrated=false;
+    journaliers.forEach(j=>{ if(!j.id){ j.id=newId(); migrated=true; } });
+    if(migrated || !journaliersDoc.exists) save(LS_JOURNALIERS, journaliers);
+
+    // Aides : pareil
+    if(aidesDoc.exists){
+      kvCache[LS_AIDES]=aidesDoc.data().value;
+    } else {
+      const legacyAides = legacyLoad(LS_AIDES, null);
+      if(legacyAides && legacyAides.length){ aides = legacyAides; }
+      save(LS_AIDES, aides);
+    }
+    aides = load(LS_AIDES, aides);
+
+    if(historyDoc.exists){
+      kvCache[LS_WEEK_HISTORY]=historyDoc.data().value;
+    } else {
+      const legacyHistory = legacyLoad(LS_WEEK_HISTORY, []);
+      if(legacyHistory.length){ save(LS_WEEK_HISTORY, legacyHistory); }
+    }
+
+    const monday = todayMonday();
+    const legacyCurrentWeek = legacyLoad(LS_CURRENT_WEEK, null);
+    const storedStart = currentWeekDoc.exists ? currentWeekDoc.data().value : (legacyCurrentWeek || monday);
+    const weekDoc = await firestoreRefFor(LS_WEEK_PREFIX+storedStart).get();
+    let data;
+    if(weekDoc.exists){
+      data = weekDoc.data();
+    } else {
+      const legacyWeek = legacyLoad(LS_WEEK_PREFIX+storedStart, null);
+      data = legacyWeek || weekTemplate(storedStart);
+      save(LS_WEEK_PREFIX+storedStart, data); // migrer vers la base en ligne
+    }
+    if(!data.entries) data.entries={};
+    kvCache[LS_WEEK_PREFIX+storedStart] = data;
+
+    let start = storedStart;
+    if(start !== monday){
+      archiveWeek(data);
+      start = monday;
+      data = weekTemplate(start);
+      kvCache[LS_WEEK_PREFIX+start] = data;
+      save(LS_WEEK_PREFIX+start, data);
+      save(LS_CURRENT_WEEK, start);
+    } else if(!currentWeekDoc.exists){
+      save(LS_CURRENT_WEEK, start);
+    }
+    currentWeekStart = start;
+    weekData = data;
+
+    setupRealtimeListeners();
+
+    document.getElementById('rateProduction').value = rates.Production;
+    document.getElementById('rateCamion').value = rates.Camion;
+    renderJournaliers();
+    renderAides();
+    renderPointage();
+    refreshHistory();
+  }catch(e){
+    console.error('Erreur de chargement Firestore', e);
+    alert("Impossible de charger les données en ligne. Vérifie ta connexion internet et réessaie.");
+  }
+  showLoading(false);
+}
+
+function setupRealtimeListeners(){
+  firestoreRefFor(LS_JOURNALIERS).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    journaliers = doc.data().value;
+    kvCache[LS_JOURNALIERS]=journaliers;
+    renderJournaliers();
+    renderPointage();
+  });
+  firestoreRefFor(LS_AIDES).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    aides = doc.data().value;
+    kvCache[LS_AIDES]=aides;
+    renderAides();
+    if(document.getElementById('recap')?.classList.contains('active')) renderRecap();
+  });
+  firestoreRefFor(LS_RATES).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    rates = doc.data().value;
+    kvCache[LS_RATES]=rates;
+    document.getElementById('rateProduction').value = rates.Production;
+    document.getElementById('rateCamion').value = rates.Camion;
+    renderPointage();
+  });
+  firestoreRefFor(LS_WEEK_HISTORY).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    kvCache[LS_WEEK_HISTORY]=doc.data().value;
+    if(document.getElementById('historique')?.classList.contains('active')) refreshHistory();
+  });
+  firestoreRefFor(LS_PWD_HASH).onSnapshot(doc=>{
+    if(doc.exists){ sharedPwdHash = doc.data().value; kvCache[LS_PWD_HASH]=sharedPwdHash; }
+  });
+  subscribeToWeek(currentWeekStart);
+}
+function subscribeToWeek(start){
+  if(weekListenerUnsub) weekListenerUnsub();
+  weekListenerUnsub = firestoreRefFor(LS_WEEK_PREFIX+start).onSnapshot(doc=>{
+    if(!doc.exists) return;
+    const data = doc.data();
+    if(!data.entries) data.entries={};
+    kvCache[LS_WEEK_PREFIX+start]=data;
+    if(currentWeekStart===start){
+      weekData = data;
+      renderPointage();
+      if(document.getElementById('recap')?.classList.contains('active')) renderRecap();
+      if(document.getElementById('aides')?.classList.contains('active')) renderAides();
+    }
+  });
+}
+
+/* ---------- Navigation ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> goTo(btn.dataset.tab));
+});
+function goTo(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('section').forEach(s=>{
+    s.classList.toggle('active', s.id===tab);
+    s.classList.toggle('print-active', s.id===tab);
+  });
+  if(tab==='recap') renderRecap();
+  if(tab==='aides') renderAides();
+  if(tab==='historique') refreshHistory();
+}
+
+/* ---------- Rates ---------- */
+function saveRates(){
+  rates.Production = Number(document.getElementById('rateProduction').value) || 3000;
+  rates.Camion = Number(document.getElementById('rateCamion').value) || 3500;
+  save(LS_RATES, rates);
+  renderPointage();
+  alert('Taux enregistrés.');
+}
+
+/* ---------- Journaliers (page de base) ---------- */
+function renderJournaliers(){
+  const tbody = document.getElementById('journaliersBody');
+  tbody.innerHTML = '';
+  journaliers.forEach((j, i)=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><input type="text" placeholder="Nom et prénom" value="${j.nom||''}" onchange="updateJournalier('${j.id}','nom',this.value)"></td>
+      <td>
+        <select onchange="updateJournalier('${j.id}','categorie',this.value)">
+          <option value="" ${!j.categorie?'selected':''}></option>
+          <option value="Production" ${j.categorie==='Production'?'selected':''}>Production</option>
+          <option value="Camion" ${j.categorie==='Camion'?'selected':''}>Camion</option>
+        </select>
+      </td>
+      <td><input type="text" value="${j.telephone||''}" onchange="updateJournalier('${j.id}','telephone',this.value)"></td>
+      <td>
+        <select onchange="updateJournalier('${j.id}','statut',this.value)">
+          <option value="Actif" ${j.statut!=='Inactif'?'selected':''}>Actif</option>
+          <option value="Inactif" ${j.statut==='Inactif'?'selected':''}>Inactif</option>
+        </select>
+      </td>
+      <td class="no-print"><button class="del-btn" onclick="removeJournalier('${j.id}')">🗑</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+function addJournalier(){
+  journaliers.push({id:newId(), nom:'', categorie:'', telephone:'', statut:'Actif'});
+  save(LS_JOURNALIERS, journaliers);
+  renderJournaliers();
+}
+function updateJournalier(id, field, val){
+  const j = journaliers.find(x=>x.id===id);
+  if(!j) return;
+  j[field] = val;
+  save(LS_JOURNALIERS, journaliers);
+  if(field==='nom' || field==='categorie' || field==='statut'){
+    renderPointage(); // le nom/catégorie/statut se répercute immédiatement sur Pointage et Récap
+  }
+}
+function removeJournalier(id){
+  if(!confirm('Supprimer ce journalier ? Son historique de pointage restera enregistré mais ne sera plus affiché.')) return;
+  journaliers = journaliers.filter(x=>x.id!==id);
+  save(LS_JOURNALIERS, journaliers);
+  renderJournaliers();
+  renderPointage();
+}
+function activeJournaliers(){
+  return journaliers.filter(j=>j.statut!=='Inactif' && (j.nom||'').trim()!=='');
+}
+
+/* ---------- Aides ---------- */
+function renderAides(){
+  const tbody=document.getElementById('aidesBody');
+  tbody.innerHTML='';
+  let total=0,avance=0,reste=0;
+  aides.forEach((a,i)=>{
+    const e=getEntry(a.id);
+    const montant=Math.max(0,Number(e.aideMontant)||0);
+    const av=Math.max(0,Number(e.avance)||0);
+    const r=Math.max(0,montant-av);
+    total+=montant; avance+=av; reste+=r;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td style="text-align:left;font-weight:600;">${a.nom}</td>
+      <td><input type="number" min="0" step="100" value="${montant||''}" onchange="updateAideMontant('${a.id}',this.value)" placeholder="Montant libre"></td>
+      <td><input type="number" min="0" step="100" value="${av||''}" onchange="updateAvance('${a.id}',this.value)" placeholder="0"></td>
+      <td>${r.toLocaleString('fr-FR')} F</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('aidesTotMontant').textContent=total.toLocaleString('fr-FR')+' F';
+  document.getElementById('aidesTotAvance').textContent=avance.toLocaleString('fr-FR')+' F';
+  document.getElementById('aidesTotReste').textContent=reste.toLocaleString('fr-FR')+' F';
+}
+function updateAideMontant(id,val){
+  getEntry(id).aideMontant=Math.max(0,Number(val)||0);
+  saveWeek();
+  renderAides();
+}
+
+/* ---------- Pointage (généré automatiquement à partir de Journaliers) ---------- */
+function tauxFor(categorie){
+  if(categorie==='Production') return rates.Production;
+  if(categorie==='Camion') return rates.Camion;
+  return null;
+}
+/* Taux effectif d'un journalier : son taux personnalisé s'il en a un, sinon le taux par défaut de sa catégorie */
+function effectiveTaux(j){
+  if(j.tauxPersonnalise!==undefined && j.tauxPersonnalise!==null && j.tauxPersonnalise!==''){
+    const v = Number(j.tauxPersonnalise);
+    if(v>0) return v;
+  }
+  return tauxFor(j.categorie);
+}
+function updateTauxPersonnalise(id, val){
+  const j = journaliers.find(x=>x.id===id);
+  if(!j) return;
+  const v = Number(val);
+  const def = tauxFor(j.categorie);
+  if(!v || v<=0 || v===def){
+    delete j.tauxPersonnalise;
+  } else {
+    j.tauxPersonnalise = v;
+  }
+  save(LS_JOURNALIERS, journaliers);
+  renderPointage();
+}
+function resetTaux(id){
+  const j = journaliers.find(x=>x.id===id);
+  if(!j) return;
+  delete j.tauxPersonnalise;
+  save(LS_JOURNALIERS, journaliers);
+  renderPointage();
+}
+function saveWeek(){
+  save(LS_WEEK_PREFIX + weekData.start, weekData);
+  save(LS_CURRENT_WEEK, weekData.start);
+}
+function getEntry(id){
+  if(!weekData.entries[id]) weekData.entries[id] = {days:['','','','','',''], avance:0, aideMontant:0};
+  return weekData.entries[id];
+}
+function renderPointage(){
+  document.getElementById('weekStart').value = weekData.start;
+  document.getElementById('weekEnd').value = weekData.end;
+  const tbody = document.getElementById('pointageBody');
+  tbody.innerHTML = '';
+  let totJours=0, totMontant=0, totAvance=0;
+  const dayLabels=['Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const actifs = activeJournaliers();
+
+  if(actifs.length===0){
+    tbody.innerHTML = `<tr><td colspan="13" style="color:var(--muted); padding:16px;">Aucun journalier actif. Ajoutez des noms dans la page <strong>Journaliers</strong>.</td></tr>`;
+    document.getElementById('totJours').textContent = 0;
+    document.getElementById('totMontant').textContent = 0;
+    return;
+  }
+
+  actifs.forEach((j,i)=>{
+    const entry = getEntry(j.id);
+    const jours = entry.days.filter(d=>d==='P').length;
+    const taux = effectiveTaux(j);
+    const isCustom = j.tauxPersonnalise!==undefined && j.tauxPersonnalise!==null && j.tauxPersonnalise!=='' && Number(j.tauxPersonnalise)>0;
+    const autoMontant = taux!==null ? jours*taux : 0;
+    const hasOverride = entry.montantOverride!==undefined && entry.montantOverride!==null && entry.montantOverride!=='';
+    const montant = hasOverride ? Number(entry.montantOverride) : autoMontant;
+    totJours += jours;
+    totMontant += montant;
+    const avance=Math.max(0,Number(entry.avance)||0);
+    totAvance += avance;
+    const reste=Math.max(0,montant-avance);
+
+    const dayCells = dayLabels.map((lbl,di)=>{
+      const val = entry.days[di]||'';
+      return `<td>
+        <div class="day-toggle">
+          <button type="button" class="day-btn p ${val==='P'?'active':''}" onclick="setDay('${j.id}',${di},'P')">P</button>
+          <button type="button" class="day-btn a ${val==='A'?'active':''}" onclick="setDay('${j.id}',${di},'A')">A</button>
+        </div>
+      </td>`;
+    }).join('');
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td style="text-align:left; font-weight:600;">${j.nom}</td>
+      <td>${j.categorie? `<span class="journalier-tag">${j.categorie}</span>` : '<span style="color:var(--red); font-size:.75rem;">à définir</span>'}</td>
+      ${dayCells}
+      <td>${jours}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+          <input type="number" min="0" step="100" style="width:70px;" value="${taux===null?'':taux}" onchange="updateTauxPersonnalise('${j.id}',this.value)">
+          ${isCustom? `<button type="button" title="Rétablir le taux par défaut" onclick="resetTaux('${j.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;">⟲</button>` : ''}
+        </div>
+        ${isCustom? `<div style="font-size:.65rem; color:var(--water); font-weight:700;">personnalisé</div>` : ''}
+      </td>
+      <td>
+        <div style="display:flex; align-items:center; gap:4px; justify-content:center;">
+          <input type="number" min="0" step="100" style="width:80px;" value="${montant||''}" placeholder="0" onchange="updateMontantOverride('${j.id}',this.value)">
+          ${hasOverride? `<button type="button" title="Recalculer automatiquement (jours × taux)" onclick="resetMontant('${j.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;">⟲</button>` : ''}
+        </div>
+        ${hasOverride? `<div style="font-size:.65rem; color:var(--water); font-weight:700;">modifié</div>` : ''}
+      </td>
+      <td><input type="number" min="0" step="100" value="${avance||''}" onchange="updateAvance('${j.id}',this.value)" placeholder="0"></td>
+      <td>${reste.toLocaleString('fr-FR')}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('totJours').textContent = totJours;
+  document.getElementById('totMontant').textContent = totMontant.toLocaleString('fr-FR');
+  document.getElementById('totAvance').textContent = totAvance.toLocaleString('fr-FR');
+  document.getElementById('totReste').textContent = Math.max(0,totMontant-totAvance).toLocaleString('fr-FR');
+}
+function setDay(id, dayIdx, val){
+  const entry = getEntry(id);
+  entry.days[dayIdx] = (entry.days[dayIdx]===val) ? '' : val;
+  saveWeek();
+  renderPointage();
+}
+function updateAvance(id, val){
+  const entry=getEntry(id);
+  entry.avance=Math.max(0,Number(val)||0);
+  saveWeek();
+  renderPointage();
+}
+function updateMontantOverride(id, val){
+  const entry=getEntry(id);
+  const j=journaliers.find(x=>x.id===id);
+  const auto = j ? entry.days.filter(d=>d==='P').length * (effectiveTaux(j)||0) : 0;
+  const v = Number(val);
+  if(!val || v<0 || v===auto){
+    delete entry.montantOverride;
+  } else {
+    entry.montantOverride = v;
+  }
+  saveWeek();
+  renderPointage();
+}
+function resetMontant(id){
+  const entry=getEntry(id);
+  delete entry.montantOverride;
+  saveWeek();
+  renderPointage();
+}
+document.getElementById('weekStart').addEventListener('change', async function(){
+  const newStart=this.value;
+  saveWeek();
+  showLoading(true);
+  try{
+    const doc = await firestoreRefFor(LS_WEEK_PREFIX+newStart).get();
+    const data = doc.exists ? doc.data() : weekTemplate(newStart);
+    if(!data.entries) data.entries={};
+    kvCache[LS_WEEK_PREFIX+newStart]=data;
+    weekData=data;
+    currentWeekStart=newStart;
+    save(LS_CURRENT_WEEK,newStart);
+    subscribeToWeek(newStart);
+    renderPointage();
+  }catch(e){
+    console.error('Erreur changement de semaine', e);
+  }
+  showLoading(false);
+});
+document.getElementById('weekEnd').addEventListener('change', function(){
+  weekData.end = this.value;
+  saveWeek();
+});
+
+/* ---------- Récap (aussi généré automatiquement à partir de Journaliers) ---------- */
+function renderRecap(){
+  const tbody=document.getElementById('recapBody');
+  tbody.innerHTML='';
+  let totJours=0,totMontant=0;
+  const fmt=s=>s?new Date(s).toLocaleDateString('fr-FR'):'—';
+  document.getElementById('recapWeekLabel').textContent=`Semaine du : ${fmt(weekData.start)}   au : ${fmt(weekData.end)}`;
+  activeJournaliers().forEach((j,i)=>{
+    const entry=getEntry(j.id);
+    const jours=entry.days.filter(d=>d==='P').length;
+    const taux=effectiveTaux(j);
+    const hasOverride = entry.montantOverride!==undefined && entry.montantOverride!==null && entry.montantOverride!=='';
+    const montant=hasOverride ? Number(entry.montantOverride) : (taux!==null?jours*taux:0);
+    const avance=Math.max(0,Number(entry.avance)||0);
+    const aPayer=Math.max(0,montant-avance);
+    totJours+=jours; totMontant+=aPayer;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td style="text-align:left;">${j.nom}</td><td>${j.categorie||''}</td>
+      <td>${jours}</td><td>${taux===null?'':taux}</td><td style="font-weight:700;">${aPayer.toLocaleString('fr-FR')}</td>
+      <td style="height:34px;"></td>`;
+    tbody.appendChild(tr);
+  });
+  aides.forEach((a,i)=>{
+    const entry=getEntry(a.id);
+    const montant=Math.max(0,Number(entry.aideMontant)||0);
+    const avance=Math.max(0,Number(entry.avance)||0);
+    const aPayer=Math.max(0,montant-avance);
+    totMontant+=aPayer;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>A${i+1}</td><td style="text-align:left;">${a.nom}</td><td>Aide</td>
+      <td>—</td><td>—</td><td style="font-weight:700;">${aPayer.toLocaleString('fr-FR')}</td>
+      <td style="height:34px;"></td>`;
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('recapTotJours').textContent=totJours;
+  document.getElementById('recapTotMontant').textContent=totMontant.toLocaleString('fr-FR')+' F';
+}
+function refreshHistory(){
+  const tbody=document.getElementById('historyBody');
+  tbody.innerHTML='';
+  const history=load(LS_WEEK_HISTORY,[]).slice().sort((a,b)=>b.start.localeCompare(a.start));
+  if(history.length===0){
+    tbody.innerHTML='<tr><td colspan="6" style="color:var(--muted);padding:16px;">Aucune semaine terminée pour le moment.</td></tr>';
+    return;
+  }
+  history.forEach(h=>{
+    const fmt=s=>new Date(s).toLocaleDateString('fr-FR');
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>Semaine du ${fmt(h.start)} au ${fmt(h.end)}</td>
+      <td>${h.jours||0}</td><td>${Number(h.montant||0).toLocaleString('fr-FR')} F</td>
+      <td>${Number(h.avance||0).toLocaleString('fr-FR')} F</td>
+      <td>${Number(h.reste||0).toLocaleString('fr-FR')} F</td>
+      <td><span class="journalier-tag">Terminée</span></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function printHistory(){
+  document.getElementById('historique').classList.add('print-active');
+  refreshHistory();
+  window.print();
+}
+</script>
+</body>
+</html>
